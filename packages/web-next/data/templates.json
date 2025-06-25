@@ -1,0 +1,86 @@
+[
+  {
+    "id": 1,
+    "name": "Co-founder Agreement",
+    "category": "Startup legal templates",
+    "content": "This Co-founder Agreement template helps establish clear roles, responsibilities, and equity distribution among company founders. It covers decision-making processes, intellectual property ownership, and exit procedures."
+  },
+  {
+    "id": 2,
+    "name": "Non-disclosure agreement (NDA)",
+    "category": "Startup legal templates",
+    "content": "A Non-Disclosure Agreement (NDA) template to protect confidential information shared between parties. This template includes standard clauses for mutual protection and defines what constitutes confidential information."
+  },
+  {
+    "id": 3,
+    "name": "Mutual Non-disclosure Agreement",
+    "category": "Startup legal templates",
+    "content": "This Mutual NDA template provides protection for both parties when sharing confidential information. It establishes clear guidelines for information handling and return obligations."
+  },
+  {
+    "id": 4,
+    "name": "Employment Contract",
+    "category": "Startup legal templates",
+    "content": "A comprehensive Employment Contract template covering job responsibilities, compensation, benefits, termination clauses, and intellectual property assignments for startup employees."
+  },
+  {
+    "id": 5,
+    "name": "Advisor Agreement",
+    "category": "Startup legal templates",
+    "content": "This Advisor Agreement template outlines the relationship between a startup and its advisors, including equity compensation, time commitments, and confidentiality obligations."
+  },
+  {
+    "id": 6,
+    "name": "Letter of Intent (LOI)",
+    "category": "Startup legal templates",
+    "content": "A Letter of Intent template for expressing preliminary interest in business transactions, partnerships, or investments. Includes key terms and conditions for further negotiations."
+  },
+  {
+    "id": 7,
+    "name": "Memorandum of Understanding (MOU)",
+    "category": "Startup legal templates",
+    "content": "This MOU template establishes the framework for cooperation between parties, outlining mutual understanding and preliminary agreements before formal contracts."
+  },
+  {
+    "id": 8,
+    "name": "Term Sheets",
+    "category": "Startup legal templates",
+    "content": "A Term Sheet template for investment rounds, covering valuation, investment amount, liquidation preferences, board composition, and other key investment terms."
+  },
+  {
+    "id": 9,
+    "name": "Stock Option Agreement",
+    "category": "Startup legal templates",
+    "content": "This Stock Option Agreement template provides a framework for granting equity compensation to employees, including vesting schedules and exercise provisions."
+  },
+  {
+    "id": 10,
+    "name": "Shareholder Agreement",
+    "category": "Startup legal templates",
+    "content": "A Shareholder Agreement template governing the relationship between company shareholders, including voting rights, transfer restrictions, and dispute resolution mechanisms."
+  },
+  {
+    "id": 11,
+    "name": "Tenancy Agreement",
+    "category": "Real estate legal template",
+    "content": "A comprehensive Tenancy Agreement template covering rental terms, tenant and landlord obligations, deposit requirements, and property maintenance responsibilities."
+  },
+  {
+    "id": 12,
+    "name": "Sales & Purchase Agreement",
+    "category": "Real estate legal template",
+    "content": "This Sales & Purchase Agreement template provides a framework for real estate transactions, including property details, purchase price, closing conditions, and contingencies."
+  },
+  {
+    "id": 13,
+    "name": "Lease Termination",
+    "category": "Real estate legal template",
+    "content": "A Lease Termination template outlining the procedures and requirements for ending a rental agreement, including notice periods and property condition requirements."
+  },
+  {
+    "id": 14,
+    "name": "Rent Increase Letter",
+    "category": "Real estate legal template",
+    "content": "This Rent Increase Letter template provides a formal way to notify tenants of rental increases, including legal requirements and effective dates."
+  }
+]

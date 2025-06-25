@@ -1,0 +1,58 @@
+
+ARG NODE_VERSION=21.5.0
+ARG BUILDER=node:21.5.0-alpine
+
+###########################################
+# Install api in builder image
+###########################################
+
+FROM ${BUILDER} as build
+
+# Set working directory
+WORKDIR /usr/src/build
+
+# Copy workspace files
+COPY package.json yarn.lock .yarnrc.yml ./
+COPY .yarn ./.yarn
+COPY packages/api/package.json ./packages/api/
+COPY packages/api ./packages/api
+
+# Enable corepack and install dependencies
+RUN corepack enable
+RUN yarn install --mode=skip-build
+RUN yarn workspace api prisma:generate
+RUN yarn workspace api build
+
+# Only use the dependencies of the api package in the root node_modules-folder
+RUN yarn workspaces focus api --production
+
+###########################################
+# Create a lightweight runtime image
+###########################################
+
+# Runtime image
+FROM node:${NODE_VERSION}-alpine as api
+
+# Install ts-node
+# RUN yarn global add ts-node
+RUN npm install -g ts-node
+
+WORKDIR /usr/app
+
+COPY --from=build --chown=node:node /usr/src/build/node_modules ./node_modules
+COPY --from=build --chown=node:node /usr/src/build/packages/api/package*.json ./
+COPY --from=build --chown=node:node /usr/src/build/packages/api/dist ./dist
+COPY --from=build --chown=node:node /usr/src/build/packages/api/prisma ./prisma
+
+# Ensure the app directory is owned by the node user
+RUN chown -R node:node /usr/app
+
+# Switch to the node user
+USER node
+
+# Run container as non-root (unprivileged) user
+# The "node" user is provided in the Node.js Alpine base image
+USER node
+
+EXPOSE 4000
+CMD [ "npm", "run", "start:prod" ]

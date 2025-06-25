@@ -1,0 +1,46 @@
+# Barum MVP Environment Configuration Template
+# Copy this file to mvp.tfvars and fill in your actual values
+# Never commit the actual mvp.tfvars file to git
+
+# Basic Configuration
+project_name = "barum"
+environment = "mvp"
+region = "ap-southeast-1"
+
+# Compute - Cost-optimized
+instance_type = "t3.medium"
+key_name = "your-ec2-key-name"  # Create this in AWS first
+
+# Networking
+vpc_cidr             = "10.0.0.0/16"
+public_subnet_cidrs = ["10.0.1.0/24", "10.0.2.0/24"]
+
+# Domain Configuration (Update these values)
+domain_name = "your-domain.com"
+subdomain = "app"  # Will create app.your-domain.com
+route53_zone_id  = "ZXXXXXXXXXXXXX"  # Your Route53 hosted zone ID
+
+# SSH Access (Your actual public key)
+ssh_public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQ... your-key-here"
+
+# Environment Variables (Replace with your actual values from Supabase)
+# Get these from your Supabase project settings
+database_url                    = "postgresql://user:password@your-db-host:5432/barum_mvp"
+jwt_secret                      = "your-super-secret-jwt-key-change-this"
+supabase_url                   = "https://your-project.supabase.co"
+supabase_anon_key              = "your-supabase-anon-key"
+supabase_service_role_key      = "your-supabase-service-role-key"
+next_public_supabase_url       = "https://your-project.supabase.co"
+next_public_supabase_anon_key  = "your-supabase-anon-key"
+next_public_api_url            = "https://app.your-domain.com/api"
+
+# Security
+allowed_cidr_blocks = ["0.0.0.0/0"]  # Restrict this to your IP ranges for production
+
+# Tags
+tags = {
+  Project     = "barum"
+  Environment = "mvp"
+  Owner       = "your-name"
+  CostCenter  = "engineering"
+} 

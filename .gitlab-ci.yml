@@ -1,0 +1,754 @@
+# GitLab CI/CD Pipeline - High-Performance Edition with Cleanup & Rollback
+
+# Workflow rules to prevent automatic pipeline creation
+workflow:
+  rules:
+    # Allow merge request pipelines
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    # Allow manual/web/API triggers
+    - if: $CI_PIPELINE_SOURCE == "web"
+    - if: $CI_PIPELINE_SOURCE == "api"  
+    # Allow push to main/develop only
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "main"
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "develop"
+    # Block all other automatic triggers to prevent cascade pipelines
+    - when: never
+
+variables:
+  # Docker settings - optimized for performance
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: "/certs"
+  DOCKER_BUILDKIT: 1
+  BUILDKIT_INLINE_CACHE: 1
+  
+  # AWS settings
+  AWS_DEFAULT_REGION: us-east-1
+  
+  # Project settings
+  PROJECT_NAME: barum
+  
+  # ECR repositories with environment variables
+  API_ECR_REPO: $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$PROJECT_NAME-$ENVIRONMENT-api
+  WEB_NEXT_ECR_REPO: $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$PROJECT_NAME-$ENVIRONMENT-web-next
+  
+  # Performance optimization variables
+  NODE_OPTIONS: "--max-old-space-size=1536"  # Reduced memory for better performance
+  YARN_CACHE_FOLDER: .yarn-cache
+  YARN_ENABLE_GLOBAL_CACHE: "false"
+  CI: "true"
+  
+  # Docker optimization variables
+  DOCKER_COMPOSE_HTTP_TIMEOUT: 120
+  COMPOSE_PARALLEL_LIMIT: 2
+  
+  # Deployment tracking
+  DEPLOYMENT_TRACKING_FILE: ".deployment-state"
+
+stages:
+  - setup
+  - validate-and-test
+  - build
+  - security
+  - deploy
+  - rollback
+  - manual_cleanup
+
+# Optimized cache configurations for maximum performance
+.node_cache: &node_cache
+  key: 
+    files:
+      - yarn.lock
+    prefix: "node-v2"
+  paths:
+    - .yarn-cache/
+    - node_modules/
+    - packages/*/node_modules/
+    - .pnp.cjs
+    - .pnp.loader.mjs
+  policy: pull-push
+
+.global_cache: &global_cache
+  key: "global-deps-v3"
+  paths:
+    - .yarn-cache/
+    - node_modules/
+    - packages/*/node_modules/
+  policy: pull-push
+  
+.turbo_cache: &turbo_cache
+  key: 
+    files:
+      - yarn.lock
+    prefix: "turbo-v2"
+  paths:
+    - .turbo/
+    - node_modules/.cache/turbo/
+  policy: pull-push
+
+# Rule templates for conditional execution
+.auto_rules: &auto_rules
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "develop"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: manual
+      allow_failure: true
+    - if: $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != "main" && $CI_COMMIT_BRANCH != "develop"
+      when: manual
+      allow_failure: true
+
+# Rule templates for build, security, deploy jobs (manual on develop/main only)
+.manual_develop_main: &manual_develop_main
+  when: manual
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "develop"
+
+# Rule templates for always-run jobs (after setup)
+.always_after_setup: &always_after_setup
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "develop"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != "main" && $CI_COMMIT_BRANCH != "develop"
+
+# Ultra-fast dependency setup with aggressive caching
+setup_dependencies:
+  stage: setup
+  image: node:21.5.0-alpine
+  cache:
+    - <<: *global_cache
+  variables:
+    YARN_CACHE_FOLDER: ".yarn-cache"
+    YARN_ENABLE_GLOBAL_CACHE: "false"
+    YARN_ENABLE_IMMUTABLE_INSTALLS: "true"
+    YARN_ENABLE_INLINE_BUILDS: "true"
+    NODE_OPTIONS: "--max-old-space-size=2048"
+  before_script:
+    # Fast dependency check - skip if cache is fresh
+    - |
+      if [ -f "node_modules/.cache-marker" ] && [ -f "packages/api/node_modules/.cache-marker" ]; then
+        echo "✅ Dependencies cache is fresh, skipping installation"
+        exit 0
+      fi
+    - echo "📦 Installing build dependencies..."
+    - apk add --no-cache git python3 make g++ --virtual .build-deps
+    - yarn config set cacheFolder .yarn-cache
+    - yarn config set httpTimeout 120000
+    - yarn config set enableGlobalCache false
+  script:
+    - echo "⚡ Installing dependencies with maximum performance..."
+    - |
+      # Parallel installation with optimizations
+      time yarn install \
+        --immutable \
+        --inline-builds \
+        --check-cache \
+        --prefer-offline || yarn install --immutable --inline-builds
+    - echo "🔧 Verifying Turbo availability..."
+    - yarn turbo --version || echo "Turbo not available"
+    - echo "🏷️ Marking cache as fresh..."
+    - touch node_modules/.cache-marker
+    - touch packages/api/node_modules/.cache-marker || true
+    - touch packages/web-next/node_modules/.cache-marker || true
+    - touch packages/ui/node_modules/.cache-marker || true
+    - echo "✅ Dependencies installed successfully"
+  after_script:
+    - apk del .build-deps 2>/dev/null || true
+    - du -sh node_modules/ packages/*/node_modules/ 2>/dev/null || true
+  <<: *auto_rules
+
+# Parallel validation and testing
+validate_commit_messages:
+  stage: validate-and-test
+  image: node:21.5.0-alpine
+  cache:
+    - <<: *global_cache
+      policy: pull
+  needs:
+    - setup_dependencies
+  before_script:
+    - echo "🔧 Setting up git for commit validation..."
+    - apk add --no-cache git
+    - git config --global --add safe.directory $CI_PROJECT_DIR
+  script:
+    - echo "📋 Validating commit messages..."
+    - |
+      if [ "$CI_MERGE_REQUEST_IID" ]; then
+        echo "Validating MR commits..."
+        git fetch origin $CI_MERGE_REQUEST_TARGET_BRANCH_NAME:refs/remotes/origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME
+        git log --pretty=format:"%s" origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME..HEAD | while read commit; do
+          echo "Validating: $commit"
+          echo "$commit" | npx commitlint
+        done
+      else
+        echo "Validating last commit..."
+        yarn commitlint:last
+      fi
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "develop"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != "main" && $CI_COMMIT_BRANCH != "develop"
+
+# Optimized API testing with resource limits
+test_lint_api:
+  stage: validate-and-test
+  image: node:21.5.0-alpine
+  services:
+    - name: postgres:14-alpine
+      alias: postgres
+      command: ["postgres", "-c", "max_connections=20", "-c", "shared_buffers=64MB"]
+  variables:
+    POSTGRES_DB: barum_test
+    POSTGRES_USER: test
+    POSTGRES_PASSWORD: test
+    DATABASE_URL: postgresql://test:test@postgres:5432/barum_test
+    DIRECT_URL: postgresql://test:test@postgres:5432/barum_test
+    NODE_ENV: test
+    # Limit resources for better performance
+    NODE_OPTIONS: "--max-old-space-size=1024"
+  cache:
+    - <<: *global_cache
+      policy: pull
+    - <<: *turbo_cache
+  needs:
+    - setup_dependencies
+  before_script:
+    - echo "⚡ Setting up API test environment..."
+    - apk add --no-cache python3 make g++ --virtual .build-deps
+    - cd packages/api
+    - echo "🔧 Generating Prisma client..."
+    - yarn prisma generate --schema=./prisma/schema.prisma
+    - echo "🗄️ Running database migrations..."
+    - yarn prisma migrate deploy
+    - echo "🌱 Seeding test database..."
+    - yarn seed
+    - cd ../..
+  script:
+    - echo "🧪 Running API tests and linting with parallel execution..."
+    - cd packages/api
+    - |
+      if [ -f "../package.json" ] && yarn --cwd .. turbo --version >/dev/null 2>&1; then
+        echo "🚀 Using Turbo for optimized builds..."
+        time yarn --cwd .. turbo run test lint --parallel --concurrency=2 --filter=api
+      else
+        echo "⚠️  Turbo not found, running commands individually..."
+        time yarn run test && time yarn run lint
+      fi
+    - cd ../..
+    # Ensure test outputs exist for artifacts
+    - ls -la packages/api/coverage/ 2>/dev/null || echo "No coverage directory found"
+    - ls -la packages/api/junit.xml 2>/dev/null || echo "No junit file found"
+  after_script:
+    - apk del .build-deps 2>/dev/null || true
+  coverage: '/Lines\s*:\s*(\d+\.\d+)%/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: packages/api/coverage/cobertura-coverage.xml
+      junit: packages/api/junit.xml
+    paths:
+      - packages/api/coverage/
+    expire_in: 6 hours
+    when: always
+  allow_failure: true
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "develop"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != "main" && $CI_COMMIT_BRANCH != "develop"
+
+# Optimized Web-Next testing
+test_lint_web_next:
+  stage: validate-and-test
+  image: node:21.5.0-alpine
+  variables:
+    NODE_OPTIONS: "--max-old-space-size=1024"
+  cache:
+    - <<: *global_cache
+      policy: pull
+    - <<: *turbo_cache
+  needs:
+    - setup_dependencies
+  script:
+    - echo "🧪 Running Web-Next tests and linting with parallel execution..."
+    - cd packages/web-next
+    - |
+      if [ -f "../package.json" ] && yarn --cwd .. turbo --version >/dev/null 2>&1; then
+        echo "🚀 Using Turbo for optimized builds..."
+        time yarn --cwd .. turbo run test lint --parallel --concurrency=2 --filter=web-next
+      else
+        echo "⚠️  Turbo not found, running commands individually..."
+        time yarn run test && time yarn run lint
+      fi
+    - cd ../..
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: packages/web-next/coverage/cobertura-coverage.xml
+    paths:
+      - packages/web-next/coverage/
+    expire_in: 6 hours
+    when: always
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "develop"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != "main" && $CI_COMMIT_BRANCH != "develop"
+
+# Optimized API Docker build with multi-stage and cleanup
+build_api:
+  stage: build
+  image: docker:24.0.5-alpine
+  services:
+    - name: docker:24.0.5-dind
+      alias: docker
+      command: ["dockerd", "--host=tcp://0.0.0.0:2376", "--storage-driver=overlay2", "--max-concurrent-downloads=3", "--max-concurrent-uploads=3"]
+  variables:
+    DOCKER_BUILDKIT: 1
+    BUILDKIT_PROGRESS: plain
+    ENVIRONMENT: mvp
+  cache:
+    - <<: *turbo_cache
+  needs:
+    - job: test_lint_api
+      artifacts: false
+  before_script:
+    - apk add --no-cache aws-cli
+    - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+    # Save previous deployment state for rollback
+    - echo "$CI_COMMIT_SHA" > $DEPLOYMENT_TRACKING_FILE
+    - echo "$(date)" >> $DEPLOYMENT_TRACKING_FILE
+  script:
+    - echo "Building API Docker image with optimized multi-stage build..."
+    - |
+      # Build with optimized caching and smaller layers
+      docker build \
+        --cache-from $API_ECR_REPO:cache \
+        --cache-from $API_ECR_REPO:latest \
+        --build-arg BUILDKIT_INLINE_CACHE=1 \
+        --build-arg NODE_ENV=production \
+        --target production \
+        -f packages/api/Dockerfile.api \
+        -t $API_ECR_REPO:$CI_COMMIT_SHA \
+        -t $API_ECR_REPO:latest \
+        -t $API_ECR_REPO:cache \
+        .
+    - echo "Pushing images with parallel uploads..."
+    - docker push $API_ECR_REPO:$CI_COMMIT_SHA &
+    - docker push $API_ECR_REPO:latest &
+    - wait
+    - echo "Cleaning up local Docker images and build cache..."
+    - docker system prune -f --volumes || true
+    - docker builder prune -f || true
+  artifacts:
+    paths:
+      - $DEPLOYMENT_TRACKING_FILE
+    expire_in: 1 week
+  when: manual
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "develop"
+
+# Optimized Web-Next Docker build
+build_web_next:
+  stage: build
+  image: docker:24.0.5-alpine
+  services:
+    - name: docker:24.0.5-dind
+      alias: docker
+      command: ["dockerd", "--host=tcp://0.0.0.0:2376", "--storage-driver=overlay2", "--max-concurrent-downloads=3", "--max-concurrent-uploads=3"]
+  variables:
+    DOCKER_BUILDKIT: 1
+    BUILDKIT_PROGRESS: plain
+    ENVIRONMENT: mvp
+  cache:
+    - <<: *turbo_cache
+  needs:
+    - job: test_lint_web_next
+      artifacts: false
+  before_script:
+    - apk add --no-cache aws-cli
+    - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+  script:
+    - echo "Building Web-Next Docker image with optimized multi-stage build..."
+    - |
+      docker build \
+        --cache-from $WEB_NEXT_ECR_REPO:cache \
+        --cache-from $WEB_NEXT_ECR_REPO:latest \
+        --build-arg BUILDKIT_INLINE_CACHE=1 \
+        --build-arg NODE_ENV=production \
+        --target production \
+        -f packages/web-next/Dockerfile \
+        -t $WEB_NEXT_ECR_REPO:$CI_COMMIT_SHA \
+        -t $WEB_NEXT_ECR_REPO:latest \
+        -t $WEB_NEXT_ECR_REPO:cache \
+        packages/web-next/
+    - echo "Pushing images with parallel uploads..."
+    - docker push $WEB_NEXT_ECR_REPO:$CI_COMMIT_SHA &
+    - docker push $WEB_NEXT_ECR_REPO:latest &
+    - wait
+    - echo "Cleaning up local Docker images and build cache..."
+    - docker system prune -f --volumes || true
+    - docker builder prune -f || true
+  when: manual
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "develop"
+
+# Lightweight security scanning
+security_scan:
+  stage: security
+  image: alpine:latest
+  needs:
+    - job: build_api
+      artifacts: false
+    - job: build_web_next
+      artifacts: false
+      optional: true
+  before_script:
+    - apk add --no-cache aws-cli curl
+  script:
+    - echo "Running lightweight security scans..."
+    - |
+      # Quick vulnerability check using AWS ECR scanning
+      aws ecr start-image-scan \
+        --repository-name $PROJECT_NAME-mvp-api \
+        --image-id imageTag=$CI_COMMIT_SHA \
+        --region $AWS_DEFAULT_REGION || echo "Scan already in progress"
+      
+      sleep 30  # Give scanner time to start
+      
+      aws ecr describe-image-scan-findings \
+        --repository-name $PROJECT_NAME-mvp-api \
+        --image-id imageTag=$CI_COMMIT_SHA \
+        --region $AWS_DEFAULT_REGION \
+                 --max-items 10 || echo "Security scan in progress"
+  allow_failure: true
+  when: manual
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "develop"
+
+# Fast deployment with health checks
+deploy_mvp:
+  stage: deploy
+  image: alpine:latest
+  needs:
+    - job: build_api
+      artifacts: true
+    - job: build_web_next
+      artifacts: false
+      optional: true
+    - job: security_scan
+      artifacts: false
+      optional: true
+  before_script:
+    - apk add --no-cache openssh-client curl jq
+    - eval $(ssh-agent -s)
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - echo "$SSH_KNOWN_HOSTS" >> ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+  script:
+    - echo "Deploying to MVP environment with rollback capability..."
+    - |
+      # Store current deployment for rollback
+      PREV_COMMIT=$(ssh ec2-user@$MVP_INSTANCE_IP "cat /opt/barum/current-commit 2>/dev/null || echo 'none'")
+      echo "Previous commit: $PREV_COMMIT"
+      echo "New commit: $CI_COMMIT_SHA"
+      
+      # Deploy with quick rollback capability
+      ssh ec2-user@$MVP_INSTANCE_IP << EOF
+        set -e
+        echo "Starting deployment on \$(date)"
+        
+        # Backup current state
+        echo "$PREV_COMMIT" > /opt/barum/previous-commit
+        echo "$CI_COMMIT_SHA" > /opt/barum/current-commit
+        
+        # Deploy application
+        sudo /opt/barum/deploy.sh $CI_COMMIT_SHA
+        
+        # Quick health check with timeout
+        timeout 30 sudo /opt/barum/monitor.sh || (
+          echo "Health check failed, deployment may need rollback"
+          exit 1
+        )
+        
+        echo "Deployment completed successfully on \$(date)"
+      EOF
+  artifacts:
+    paths:
+      - $DEPLOYMENT_TRACKING_FILE
+    expire_in: 7 days
+  environment:
+    name: mvp
+    url: https://$MVP_DOMAIN_NAME
+    deployment_tier: staging
+  when: manual
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "develop"
+  variables:
+    ENVIRONMENT: mvp
+
+# Fast health check
+health_check:
+  stage: deploy
+  image: alpine:latest
+  needs:
+    - deploy_mvp
+  before_script:
+    - apk add --no-cache curl
+  script:
+    - echo "Running optimized health checks..."
+    - sleep 15  # Reduced wait time
+    - |
+      # Parallel health checks
+      curl -f --max-time 15 --retry 2 --retry-delay 5 https://$MVP_DOMAIN_NAME/health &
+      curl -f --max-time 15 --retry 2 --retry-delay 5 https://$MVP_DOMAIN_NAME/api/health &
+      wait
+    - echo "All health checks passed"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  when: on_success
+
+# Production deployment (manual)
+deploy_production:
+  stage: deploy
+  image: alpine:latest
+  needs:
+    - job: build_api
+      artifacts: true
+    - job: build_web_next
+      artifacts: false
+      optional: true
+    - job: health_check
+      artifacts: false
+  before_script:
+    - apk add --no-cache openssh-client
+    - eval $(ssh-agent -s)
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - echo "$SSH_KNOWN_HOSTS" >> ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+  script:
+    - echo "Deploying to production environment..."
+    - |
+      ssh ec2-user@$PROD_INSTANCE_IP << EOF
+        set -e
+        echo "Starting production deployment on \$(date)"
+        
+        # Backup current state for rollback
+        PREV_COMMIT=\$(cat /opt/barum/current-commit 2>/dev/null || echo 'none')
+        echo "\$PREV_COMMIT" > /opt/barum/previous-commit
+        echo "$CI_COMMIT_SHA" > /opt/barum/current-commit
+        
+        # Deploy application
+        sudo /opt/barum/deploy.sh $CI_COMMIT_SHA
+        
+        # Health check with timeout
+        timeout 60 sudo /opt/barum/monitor.sh
+        
+        echo "Production deployment completed on \$(date)"
+      EOF
+  environment:
+    name: production
+    url: https://$PROD_DOMAIN_NAME
+    deployment_tier: production
+  when: manual
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  variables:
+    ENVIRONMENT: prod
+
+# Pipeline-level cleanup (always runs)
+manual_cleanup_docker:
+  stage: manual_cleanup
+  image: docker:24-alpine
+  services:
+    - name: docker:24.0.5-dind
+      alias: docker
+  script:
+    - echo "Manual Docker cleanup - removing all local Docker artifacts..."
+    - docker system prune -af --volumes || true
+    - docker builder prune -af || true
+    - docker network prune -f || true
+    - docker volume prune -f || true
+    - echo "Docker cleanup completed successfully"
+  when: manual
+  allow_failure: true
+
+# ECR repository cleanup (success only)
+manual_cleanup_ecr:
+  stage: manual_cleanup
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache aws-cli
+  script:
+    - echo "Cleaning up old ECR images (keeping last 10)..."
+    - |
+      # Clean up old ECR images (keep last 10 instead of 5 for better rollback)
+      aws ecr describe-images \
+        --repository-name $PROJECT_NAME-mvp-api \
+        --region $AWS_DEFAULT_REGION \
+        --query 'sort_by(imageDetails,& imagePushedAt)[:-10].imageDigest' \
+        --output text | while read digest; do
+          [ -n "$digest" ] && aws ecr batch-delete-image \
+            --repository-name $PROJECT_NAME-mvp-api \
+            --region $AWS_DEFAULT_REGION \
+            --image-ids imageDigest=$digest || true
+      done
+      
+      # Clean up Web-Next images if they exist
+      aws ecr describe-images \
+        --repository-name $PROJECT_NAME-mvp-web-next \
+        --region $AWS_DEFAULT_REGION \
+        --query 'sort_by(imageDetails,& imagePushedAt)[:-10].imageDigest' \
+        --output text | while read digest; do
+          [ -n "$digest" ] && aws ecr batch-delete-image \
+            --repository-name $PROJECT_NAME-mvp-web-next \
+            --region $AWS_DEFAULT_REGION \
+            --image-ids imageDigest=$digest || true
+      done 2>/dev/null || echo "Web-Next repository cleanup skipped"
+  when: manual
+  allow_failure: true
+
+# Rollback MVP deployment
+rollback_mvp:
+  stage: rollback
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache openssh-client
+    - eval $(ssh-agent -s)
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - echo "$SSH_KNOWN_HOSTS" >> ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+  script:
+    - echo "Rolling back MVP deployment..."
+    - |
+      ssh ec2-user@$MVP_INSTANCE_IP << 'EOF'
+        set -e
+        echo "Starting rollback on $(date)"
+        
+        # Get previous commit
+        PREV_COMMIT=$(cat /opt/barum/previous-commit 2>/dev/null || echo 'none')
+        
+        if [ "$PREV_COMMIT" = "none" ]; then
+          echo "No previous deployment found for rollback"
+          exit 1
+        fi
+        
+        echo "Rolling back to commit: $PREV_COMMIT"
+        
+        # Execute rollback
+        sudo /opt/barum/rollback.sh "$PREV_COMMIT"
+        
+        # Update current commit tracking
+        echo "$PREV_COMMIT" > /opt/barum/current-commit
+        
+        # Health check after rollback
+        timeout 30 sudo /opt/barum/monitor.sh
+        
+        echo "Rollback completed successfully on $(date)"
+      EOF
+  environment:
+    name: mvp-rollback
+    url: https://$MVP_DOMAIN_NAME
+    deployment_tier: staging
+  when: manual
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "develop"
+  variables:
+    ENVIRONMENT: mvp
+
+# Rollback production deployment
+rollback_production:
+  stage: rollback
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache openssh-client
+    - eval $(ssh-agent -s)
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - echo "$SSH_KNOWN_HOSTS" >> ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+  script:
+    - echo "Rolling back production deployment..."
+    - |
+      ssh ec2-user@$PROD_INSTANCE_IP << 'EOF'
+        set -e
+        echo "Starting production rollback on $(date)"
+        
+        # Get previous commit
+        PREV_COMMIT=$(cat /opt/barum/previous-commit 2>/dev/null || echo 'none')
+        
+        if [ "$PREV_COMMIT" = "none" ]; then
+          echo "No previous production deployment found for rollback"
+          exit 1
+        fi
+        
+        echo "Rolling back production to commit: $PREV_COMMIT"
+        
+        # Execute rollback
+        sudo /opt/barum/rollback.sh "$PREV_COMMIT"
+        
+        # Update current commit tracking
+        echo "$PREV_COMMIT" > /opt/barum/current-commit
+        
+        # Health check after rollback
+        timeout 60 sudo /opt/barum/monitor.sh
+        
+        echo "Production rollback completed successfully on $(date)"
+      EOF
+  environment:
+    name: production-rollback
+    url: https://$PROD_DOMAIN_NAME
+    deployment_tier: production
+  when: manual
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  variables:
+    ENVIRONMENT: prod
+
+# Infrastructure deployment (unchanged but optimized)
+deploy_infrastructure:
+  stage: deploy
+  image: hashicorp/terraform:1.6-alpine
+  cache:
+    key: "terraform-$CI_COMMIT_REF_SLUG"
+    paths:
+      - aws/infrastructure-mvp/.terraform/
+    policy: pull-push
+  needs: []
+  before_script:
+    - apk add --no-cache aws-cli
+    - aws configure set region ap-southeast-1
+  script:
+    - cd aws/infrastructure-mvp
+    - terraform init -input=false -upgrade=false
+    - terraform plan -var-file=../environments/mvp.tfvars -out=tfplan
+    - terraform apply -input=false tfplan
+  artifacts:
+    reports:
+      terraform: aws/infrastructure-mvp/tfplan
+    paths:
+      - aws/infrastructure-mvp/.terraform/
+    expire_in: 1 week
+  when: manual
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "develop"
+  environment:
+    name: mvp
+    url: https://app.barum.ai

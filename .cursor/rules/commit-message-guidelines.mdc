@@ -1,0 +1,161 @@
+---
+description: Rules for generating commit messages that pass commitlint validation
+globs: 
+alwaysApply: true
+---
+
+# CRITICAL: Commit Message Generation Guidelines
+
+⚠️ **ALL COMMIT MESSAGES MUST BE UNDER 100 CHARACTERS** ⚠️
+
+When generating commit messages for this project, you MUST follow the Conventional Commits specification and adhere to the commitlint rules configured in `commitlint.config.js`.
+
+## Required Format
+
+```
+<type>[optional scope]: <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+## Commit Types (REQUIRED)
+
+Use ONLY these allowed types:
+
+- **feat**: A new feature
+- **fix**: A bug fix  
+- **docs**: Documentation only changes
+- **style**: Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc)
+- **refactor**: A code change that neither fixes a bug nor adds a feature
+- **perf**: A code change that improves performance
+- **test**: Adding missing tests or correcting existing tests
+- **build**: Changes that affect the build system or external dependencies (example scopes: webpack, npm)
+- **ci**: Changes to our CI configuration files and scripts (example scopes: gitlab-ci, circle, browserstack, saucelabs)
+- **chore**: Other changes that don't modify src or test files
+- **revert**: Reverts a previous commit
+
+## Scope Guidelines
+
+Use these common scopes when applicable:
+
+- **api**: Changes to the API package
+- **client**: Changes to the client package  
+- **website**: Changes to the website package
+- **web-next**: Changes to the web-next package
+- **auth**: Changes to authentication module
+- **user**: Changes to user module
+- **task**: Changes to task module
+- **deps**: Dependency updates
+- **config**: Configuration changes
+
+## Validation Rules (CRITICAL)
+
+Your generated commit messages MUST follow these rules:
+
+1. **Type**: Must be lowercase and from the allowed list
+2. **Scope**: Must be lowercase if provided
+3. **Subject**: 
+   - Cannot be empty
+   - Must NOT be sentence-case, start-case, pascal-case, or upper-case
+   - Must NOT end with a period (.)
+   - Use imperative, present tense: "add" not "added" or "adds"
+4. **Header**: ⚠️ MAXIMUM 100 CHARACTERS TOTAL (INCLUDING TYPE, SCOPE, AND DESCRIPTION) ⚠️
+5. **Body lines**: Maximum 100 characters per line
+6. **Body**: Must have blank line before it if present
+7. **Footer**: Must have blank line before it if present
+
+## Examples of CORRECT commit messages:
+
+```
+feat(auth): add OAuth2 authentication support
+fix(api): resolve database connection timeout
+docs: update installation instructions  
+refactor(client): simplify user context logic
+test(auth): add unit tests for password validation
+ci: update GitLab CI configuration for deployment
+chore(deps): upgrade React to v18.2.0
+```
+
+## Examples of INCORRECT commit messages:
+
+```
+❌ Feature: Add new login page (wrong type)
+❌ feat(Auth): Add login page (scope not lowercase)  
+❌ feat: Add Login Page (subject is title-case)
+❌ feat: add login page. (ends with period)
+❌ FEAT: add login page (type not lowercase)
+❌ feat: (empty subject)
+❌ feat(auth): add comprehensive OAuth2 authentication support with Google and GitHub providers including error handling (over 100 characters)
+```
+
+## Body and Footer Guidelines
+
+- **Body**: Explain what and why, not how. Use imperative mood.
+- **Footer**: Reference issues, breaking changes, etc.
+
+Example with body and footer:
+```
+feat(auth): add OAuth2 authentication support
+
+Implement OAuth2 authentication flow with Google and GitHub providers.
+This allows users to sign in using their existing social accounts.
+
+Closes #123
+```
+
+## Breaking Changes
+
+For breaking changes, use this format:
+```
+feat(api): change user ID format to UUID
+
+BREAKING CHANGE: User IDs are now UUIDs instead of incremental integers.
+This affects all API endpoints that accept or return user IDs.
+```
+
+## Automatic Validation
+
+All commit messages are automatically validated by:
+- Git hooks using commitlint
+- GitLab CI pipeline 
+- Use `yarn commitlint:last` to manually validate
+
+## When Generating Commit Messages
+
+1. Analyze the staged changes
+2. Determine the appropriate type based on the changes
+3. Identify the scope if changes are focused on a specific module/package
+4. Write a clear, imperative description
+5. Keep the header under 100 characters
+6. Add body/footer only if additional context is needed
+7. Always double-check against the validation rules above
+
+## Character Limit Strategy
+
+If your description is too long for the 100-character limit:
+
+❌ **DON'T DO THIS:**
+```
+chore(ci): enhance GitLab CI configuration with conditional execution rules for various branches and file changes
+```
+(113 characters - TOO LONG!)
+
+✅ **DO THIS INSTEAD:**
+```
+chore(ci): enhance GitLab CI with conditional execution rules
+
+Add conditional execution rules for various branches and file changes
+to optimize CI pipeline performance and resource usage.
+```
+
+## Key Strategies for Staying Under 100 Characters:
+
+1. **Use abbreviations**: "config" instead of "configuration"
+2. **Remove articles**: "add" instead of "add the" 
+3. **Use active voice**: "improve performance" not "performance improvements"
+4. **Move details to body**: Keep header concise, explain in body
+5. **Common abbreviations**: "CI/CD", "API", "DB", "UI", "docs"
+
+Remember: The commit message will be automatically validated, so following these rules exactly is essential for the commit to be accepted.

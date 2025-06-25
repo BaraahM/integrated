@@ -1,0 +1,688 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Form Handling in Web-Next
+
+The web-next application uses multiple approaches for form handling, including Mantine forms, Next.js Server Actions, and GraphQL mutations, depending on the use case.
+
+## Form Patterns
+# Form Handling in Web-Next
+
+The web-next application uses a consistent approach for form handling based on Mantine's form library and Next.js App Router features. This follows the same patterns as the client package but adapted for Next.js with Server Actions and enhanced form handling capabilities.
+
+## Basic Form Pattern
+
+Forms follow this pattern, similar to the client package:
+
+```tsx
+'use client'
+
+import { useForm } from '@mantine/form';
+import { TextInput, Button, Stack } from '@mantine/core';
+
+const MyForm = ({ onSubmit }: { onSubmit: (values: any) => void }) => {
+  const form = useForm({
+    initialValues: {
+      name: '',
+      email: '',
+    },
+    validate: {
+      name: (value) => (value.length < 2 ? 'Name is too short' : null),
+      email: (value) => (/^\S+@\S+$/.test(value) ? null : 'Invalid email'),
+    },
+  });
+  
+  return (
+    <form onSubmit={form.onSubmit(onSubmit)}>
+      <Stack>
+        <TextInput 
+          label="Name" 
+          placeholder="Your name" 
+          {...form.getInputProps('name')} 
+        />
+        <TextInput 
+          label="Email" 
+          placeholder="Your email" 
+          {...form.getInputProps('email')} 
+        />
+        <Button type="submit">Submit</Button>
+      </Stack>
+    </form>
+  );
+};
+
+export default MyForm;
+```
+
+## Form Validation
+
+Forms use Yup for validation schemas (same as client package):
+
+```typescript
+import * as Yup from 'yup';
+
+const validationSchema = Yup.object().shape({
+  email: Yup.string()
+    .email('Invalid email')
+    .required('Email is required'),
+  password: Yup.string()
+    .min(8, 'Password must be at least 8 characters')
+    .required('Password is required'),
+  confirmPassword: Yup.string()
+    .oneOf([Yup.ref('password')], 'Passwords must match')
+    .required('Please confirm your password'),
+});
+```
+
+## Form States and Feedback
+
+Forms display different states:
+- Loading state during submission
+- Error messages for validation errors
+- Success notifications on successful submission
+- Disabled inputs during submission
+
+## File Upload Forms
+
+For forms with file uploads, use the file input component and handle the upload separately:
+
+```tsx
+'use client'
+
+import { useState } from 'react';
+import { FileInput, Button, Stack } from '@mantine/core';
+
+const ProfileForm = () => {
+  const [file, setFile] = useState<File | null>(null);
+  
+  const handleSubmit = async (values: any) => {
+    if (file) {
+      // Handle file upload first
+      const fileUrl = await uploadFile(file);
+      // Then submit form with file URL
+      await updateProfile({ ...values, avatarUrl: fileUrl });
+    } else {
+      await updateProfile(values);
+    }
+  };
+  
+  return (
+    <form onSubmit={handleSubmit}>
+      <Stack>
+        <FileInput 
+          label="Profile Picture"
+          onChange={setFile}
+          accept="image/*"
+        />
+        {/* Other form fields */}
+        <Button type="submit">Save</Button>
+      </Stack>
+    </form>
+  );
+};
+
+export default ProfileForm;
+```
+
+## Form Submission and API Integration
+
+Forms connect to the API through custom hooks (same pattern as client package):
+
+```typescript
+// hook definition
+export const useUpdateProfileMutation = () => {
+  const [mutate, { loading }] = useMutation(MUTATION_UPDATE_PROFILE, {
+    refetchQueries: [{ query: QUERY_GET_ME }],
+  });
+  
+  const updateProfile = async (data: any) => {
+    return mutate({ variables: { data } });
+  };
+  
+  return [updateProfile, { loading }];
+};
+```
+
+## Form Patterns
+
+### Client-Side Forms with Mantine
+
+```tsx
+'use client'
+
+import { useForm } from '@mantine/form';
+import { TextInput, Button, Stack } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
+
+interface ContactFormData {
+  name: string;
+  email: string;
+  message: string;
+}
+
+const ContactForm = () => {
+  const form = useForm<ContactFormData>({
+    initialValues: {
+      name: '',
+      email: '',
+      message: '',
+    },
+    validate: {
+      name: (value) => (value.length < 2 ? 'Name is too short' : null),
+      email: (value) => (/^\S+@\S+$/.test(value) ? null : 'Invalid email'),
+      message: (value) => (value.length < 10 ? 'Message too short' : null),
+    },
+  });
+
+  const handleSubmit = async (values: ContactFormData) => {
+    try {
+      // Handle form submission
+      await submitContactForm(values);
+      notifications.show({
+        title: 'Success',
+        message: 'Message sent successfully!',
+        color: 'green',
+      });
+      form.reset();
+    } catch (error) {
+      notifications.show({
+        title: 'Error',
+        message: 'Failed to send message',
+        color: 'red',
+      });
+    }
+  };
+
+  return (
+    <form onSubmit={form.onSubmit(handleSubmit)}>
+      <Stack>
+        <TextInput
+          label="Name"
+          placeholder="Your name"
+          {...form.getInputProps('name')}
+        />
+        <TextInput
+          label="Email"
+          placeholder="your@email.com"
+          {...form.getInputProps('email')}
+        />
+        <Textarea
+          label="Message"
+          placeholder="Your message"
+          {...form.getInputProps('message')}
+        />
+        <Button type="submit" loading={form.isSubmitting}>
+          Send Message
+        </Button>
+      </Stack>
+    </form>
+  );
+};
+
+export default ContactForm;
+```
+
+### Server Actions with Form Data
+
+```tsx
+// app/tasks/actions.ts
+'use server'
+
+import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
+
+export async function createTask(formData: FormData) {
+  const title = formData.get('title') as string;
+  const description = formData.get('description') as string;
+  
+  if (!title || title.length < 3) {
+    throw new Error('Title is required and must be at least 3 characters');
+  }
+
+  try {
+    // Create task via API or database
+    const task = await api.createTask({ title, description });
+    
+    revalidatePath('/tasks');
+    redirect(`/tasks/${task.id}`);
+  } catch (error) {
+    throw new Error('Failed to create task');
+  }
+}
+```
+
+```tsx
+// components/forms/CreateTaskForm/CreateTaskForm.tsx
+import { createTask } from '@/app/tasks/actions';
+import { Button, TextInput, Textarea, Stack } from '@mantine/core';
+
+const CreateTaskForm = () => {
+  return (
+    <form action={createTask}>
+      <Stack>
+        <TextInput
+          name="title"
+          label="Task Title"
+          placeholder="Enter task title"
+          required
+        />
+        <Textarea
+          name="description"
+          label="Description"
+          placeholder="Task description"
+        />
+        <Button type="submit">
+          Create Task
+        </Button>
+      </Stack>
+    </form>
+  );
+};
+
+export default CreateTaskForm;
+```
+
+### GraphQL Forms with Apollo Client
+
+```tsx
+'use client'
+
+import { useMutation } from '@apollo/client';
+import { useForm } from '@mantine/form';
+import { CREATE_TASK, GET_TASKS } from '@/api/queries';
+import { Button, TextInput, Textarea, Stack } from '@mantine/core';
+
+interface TaskFormData {
+  title: string;
+  description: string;
+  priority: 'low' | 'medium' | 'high';
+}
+
+const TaskForm = ({ accountId }: { accountId: string }) => {
+  const [createTask, { loading, error }] = useMutation(CREATE_TASK, {
+    refetchQueries: [{ query: GET_TASKS, variables: { accountId } }],
+  });
+
+  const form = useForm<TaskFormData>({
+    initialValues: {
+      title: '',
+      description: '',
+      priority: 'medium',
+    },
+    validate: {
+      title: (value) => (value.length < 3 ? 'Title too short' : null),
+    },
+  });
+
+  const handleSubmit = async (values: TaskFormData) => {
+    try {
+      await createTask({
+        variables: {
+          data: { ...values, accountId },
+        },
+      });
+      form.reset();
+    } catch (err) {
+      console.error('Error creating task:', err);
+    }
+  };
+
+  return (
+    <form onSubmit={form.onSubmit(handleSubmit)}>
+      <Stack>
+        <TextInput
+          label="Title"
+          {...form.getInputProps('title')}
+        />
+        <Textarea
+          label="Description"
+          {...form.getInputProps('description')}
+        />
+        <Select
+          label="Priority"
+          data={[
+            { value: 'low', label: 'Low' },
+            { value: 'medium', label: 'Medium' },
+            { value: 'high', label: 'High' },
+          ]}
+          {...form.getInputProps('priority')}
+        />
+        <Button type="submit" loading={loading}>
+          Create Task
+        </Button>
+        {error && (
+          <Alert color="red">
+            Failed to create task: {error.message}
+          </Alert>
+        )}
+      </Stack>
+    </form>
+  );
+};
+
+export default TaskForm;
+```
+
+## Advanced Form Patterns
+
+### Multi-Step Forms
+
+```tsx
+'use client'
+
+import { useState } from 'react';
+import { useForm } from '@mantine/form';
+import { Button, Stepper, Group } from '@mantine/core';
+
+interface UserRegistrationData {
+  personalInfo: {
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+  accountInfo: {
+    companyName: string;
+    role: string;
+  };
+  preferences: {
+    notifications: boolean;
+    newsletter: boolean;
+  };
+}
+
+const MultiStepRegistrationForm = () => {
+  const [active, setActive] = useState(0);
+  
+  const form = useForm<UserRegistrationData>({
+    initialValues: {
+      personalInfo: { firstName: '', lastName: '', email: '' },
+      accountInfo: { companyName: '', role: '' },
+      preferences: { notifications: true, newsletter: false },
+    },
+    validate: {
+      personalInfo: {
+        firstName: (value) => (value.length < 2 ? 'Too short' : null),
+        email: (value) => (/^\S+@\S+$/.test(value) ? null : 'Invalid email'),
+      },
+    },
+  });
+
+  const nextStep = () => setActive((current) => Math.min(current + 1, 2));
+  const prevStep = () => setActive((current) => Math.max(current - 1, 0));
+
+  const handleSubmit = (values: UserRegistrationData) => {
+    // Submit complete form data
+    console.log('Submitting:', values);
+  };
+
+  return (
+    <form onSubmit={form.onSubmit(handleSubmit)}>
+      <Stepper active={active} breakpoint="sm">
+        <Stepper.Step label="Personal Info">
+          <TextInput
+            label="First Name"
+            {...form.getInputProps('personalInfo.firstName')}
+          />
+          <TextInput
+            label="Last Name"
+            {...form.getInputProps('personalInfo.lastName')}
+          />
+          <TextInput
+            label="Email"
+            {...form.getInputProps('personalInfo.email')}
+          />
+        </Stepper.Step>
+        
+        <Stepper.Step label="Account Info">
+          <TextInput
+            label="Company Name"
+            {...form.getInputProps('accountInfo.companyName')}
+          />
+          <Select
+            label="Role"
+            data={['Developer', 'Designer', 'Manager']}
+            {...form.getInputProps('accountInfo.role')}
+          />
+        </Stepper.Step>
+        
+        <Stepper.Step label="Preferences">
+          <Checkbox
+            label="Email Notifications"
+            {...form.getInputProps('preferences.notifications', { type: 'checkbox' })}
+          />
+          <Checkbox
+            label="Newsletter"
+            {...form.getInputProps('preferences.newsletter', { type: 'checkbox' })}
+          />
+        </Stepper.Step>
+      </Stepper>
+
+      <Group justify="space-between" mt="xl">
+        {active > 0 && (
+          <Button variant="default" onClick={prevStep}>
+            Back
+          </Button>
+        )}
+        {active < 2 ? (
+          <Button onClick={nextStep}>Next</Button>
+        ) : (
+          <Button type="submit">Submit</Button>
+        )}
+      </Group>
+    </form>
+  );
+};
+```
+
+### File Upload Forms
+
+```tsx
+'use client'
+
+import { useState } from 'react';
+import { Dropzone, FileWithPath } from '@mantine/dropzone';
+import { Button, Group, Text, Alert } from '@mantine/core';
+import { IconUpload, IconPhoto, IconX } from '@tabler/icons-react';
+
+const FileUploadForm = () => {
+  const [files, setFiles] = useState<FileWithPath[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleDrop = (droppedFiles: FileWithPath[]) => {
+    setFiles(droppedFiles);
+    setError(null);
+  };
+
+  const handleUpload = async () => {
+    if (files.length === 0) return;
+
+    setUploading(true);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      files.forEach((file) => {
+        formData.append('files', file);
+      });
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      setFiles([]);
+      // Handle success
+    } catch (err) {
+      setError('Failed to upload files');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div>
+      <Dropzone
+        onDrop={handleDrop}
+        maxSize={5 * 1024 ** 2} // 5MB
+        accept={['image/*', 'application/pdf']}
+      >
+        <Group justify="center" gap="xl" style={{ minHeight: 220 }}>
+          <Dropzone.Accept>
+            <IconUpload size={50} />
+          </Dropzone.Accept>
+          <Dropzone.Reject>
+            <IconX size={50} />
+          </Dropzone.Reject>
+          <Dropzone.Idle>
+            <IconPhoto size={50} />
+          </Dropzone.Idle>
+
+          <div>
+            <Text size="xl" inline>
+              Drag images or PDFs here or click to select files
+            </Text>
+            <Text size="sm" c="dimmed" inline mt={7}>
+              Files should not exceed 5MB
+            </Text>
+          </div>
+        </Group>
+      </Dropzone>
+
+      {files.length > 0 && (
+        <div>
+          <Text mt="md">Selected files:</Text>
+          {files.map((file, index) => (
+            <Text key={index} size="sm">
+              {file.name} ({(file.size / 1024).toFixed(1)} KB)
+            </Text>
+          ))}
+        </div>
+      )}
+
+      {error && (
+        <Alert color="red" mt="md">
+          {error}
+        </Alert>
+      )}
+
+      <Button
+        onClick={handleUpload}
+        loading={uploading}
+        disabled={files.length === 0}
+        mt="md"
+      >
+        Upload Files
+      </Button>
+    </div>
+  );
+};
+```
+
+## Form Validation Patterns
+
+### Custom Validation Rules
+
+```tsx
+import * as Yup from 'yup';
+
+const taskValidationSchema = Yup.object().shape({
+  title: Yup.string()
+    .min(3, 'Title must be at least 3 characters')
+    .max(100, 'Title must not exceed 100 characters')
+    .required('Title is required'),
+  description: Yup.string()
+    .max(500, 'Description must not exceed 500 characters'),
+  dueDate: Yup.date()
+    .min(new Date(), 'Due date must be in the future')
+    .nullable(),
+  priority: Yup.string()
+    .oneOf(['low', 'medium', 'high'], 'Invalid priority'),
+});
+
+// Usage with Mantine form
+const form = useForm({
+  initialValues: {
+    title: '',
+    description: '',
+    dueDate: null,
+    priority: 'medium',
+  },
+  validate: yupResolver(taskValidationSchema),
+});
+```
+
+## Error Handling
+
+### Form-Level Error Handling
+
+```tsx
+'use client'
+
+import { useState } from 'react';
+import { Alert, Button } from '@mantine/core';
+
+const FormWithErrorHandling = () => {
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (values: any) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      await submitForm(values);
+      // Handle success
+    } catch (err) {
+      if (err instanceof ValidationError) {
+        form.setErrors(err.fieldErrors);
+      } else {
+        setError('An unexpected error occurred');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={form.onSubmit(handleSubmit)}>
+      {error && (
+        <Alert color="red" mb="md">
+          {error}
+        </Alert>
+      )}
+      
+      {/* Form fields */}
+      
+      <Button type="submit" loading={loading}>
+        Submit
+      </Button>
+    </form>
+  );
+};
+```
+
+## Best Practices
+
+1. **Use Server Actions** for simple forms that don't need client-side interactivity
+2. **Use Apollo Client mutations** for forms that interact with GraphQL APIs
+3. **Use Mantine forms** for complex client-side validation and user interactions
+4. **Implement proper loading states** to improve user experience
+5. **Handle errors gracefully** with clear error messages
+6. **Use optimistic updates** for better perceived performance
+7. **Validate data on both client and server sides**
+8. **Use TypeScript interfaces** for form data types
+9. **Implement proper file upload handling** with progress indicators
+10. **Use Next.js revalidation** to update data after form submissions
+
+## Important Form Examples
+
+- Authentication forms: [packages/web-next/components/auth/](mdc:packages/web-next/components/auth)
+- Task management forms: [packages/web-next/components/forms/](mdc:packages/web-next/components/forms)
+- User settings forms: [packages/web-next/app/settings/](mdc:packages/web-next/app/settings)

@@ -1,0 +1,101 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "tasks": {
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "dist/**",
+        ".next/**",
+        "!.next/cache/**",
+        "coverage/**"
+      ],
+      "env": [
+        "NODE_ENV",
+        "API_URL",
+        "DATABASE_URL"
+      ]
+    },
+    "lint": {
+      "outputs": [
+        "eslint-results.json"
+      ],
+      "cache": true
+    },
+    "test": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "coverage/**",
+        "junit.xml",
+        "test-results/**"
+      ],
+      "env": [
+        "NODE_ENV",
+        "DATABASE_URL"
+      ],
+      "cache": true
+    },
+    "test:cov": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "coverage/**",
+        "junit.xml"
+      ],
+      "env": [
+        "NODE_ENV",
+        "DATABASE_URL"
+      ],
+      "cache": true
+    },
+    "test:e2e": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "e2e-results.xml",
+        "playwright-report/**",
+        "test-results/**"
+      ],
+      "env": [
+        "NODE_ENV",
+        "DATABASE_URL",
+        "API_URL"
+      ],
+      "cache": false
+    },
+    "format": {
+      "outputs": [],
+      "cache": true
+    },
+    "ci:checks": {
+      "dependsOn": [
+        "lint",
+        "test:cov"
+      ],
+      "outputs": [
+        "coverage/**",
+        "junit.xml",
+        "eslint-results.json"
+      ],
+      "cache": true
+    }
+  },
+  "globalEnv": [
+    "NODE_ENV",
+    "CI"
+  ],
+  "globalDependencies": [
+    ".env*",
+    "tsconfig.json",
+    "package.json"
+  ]
+}

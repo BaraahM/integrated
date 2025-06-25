@@ -1,0 +1,101 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Web-Next Application Structure
+
+The web-next package is a Next.js application built with Next.js 14, TypeScript, and Mantine UI library. This follows similar patterns as the client package but adapted for Next.js server-side features.
+
+## Entry Points
+# Web-Next Application Structure
+
+The web-next package is a Next.js application built with Next.js 14, TypeScript, and Mantine UI library. This follows similar patterns as the client package but adapted for Next.js server-side features.
+
+## Entry Points
+
+The main entry point is [packages/web-next/app/layout.tsx](mdc:packages/web-next/app/layout.tsx), which defines the root layout for the Next.js application.
+The home page is [packages/web-next/app/page.tsx](mdc:packages/web-next/app/page.tsx).
+
+## Directory Structure
+
+The web-next follows Next.js App Router structure with atomic design principles:
+
+- `app/`: Next.js App Router pages and layouts
+  - `layout.tsx`: Root layout component
+  - `page.tsx`: Home page component
+  - `(protected)/`: Route groups for protected pages
+  - `auth/`: Authentication related pages
+  - `dashboard/`: Dashboard pages
+  - `settings/`: Settings pages
+  - `tasks/`: Task management pages
+  - `globals.css`: Global styles
+- `components/`: Reusable UI components organized by atomic design
+  - `atoms/`: Basic building blocks (buttons, inputs, etc.)
+  - `molecules/`: Simple groups of atoms
+  - `organisms/`: Complex UI sections
+  - `template/`: Page-level layout components
+  - `page/`: Page-specific components
+  - `auth/`: Authentication components
+  - `forms/`: Form components and utilities
+  - `layout/`: Layout components
+  - `providers/`: React context providers
+  - `hooks/`: Custom React hooks
+  - `ui/`: Generic UI components
+- `context/`: React context providers for global state
+- `lib/`: Utility libraries and configurations
+- `services/`: Service layer for external API communication
+- `types/`: TypeScript type definitions
+- `api/`: GraphQL queries and mutations (similar to client package structure)
+- `public/`: Static assets
+
+## Styling
+
+- Uses Mantine UI component library (same as client package)
+- Styling is done through Mantine's styling API and CSS modules
+- PostCSS configuration for advanced styling features
+
+## State Management
+
+- Uses React Context API for global state (same as client package)
+- Uses Apollo Client for GraphQL state (same as client package)
+- Uses local component state with useState for component-specific state
+- Leverages Next.js built-in state management patterns
+
+## Routing
+
+- Uses Next.js App Router for file-based routing
+- Route groups for organizing protected and public routes
+- Supports nested layouts and loading states
+
+## Authentication
+
+Authentication is handled through Supabase, similar to the client package but adapted for Next.js.
+Uses Next.js middleware for route protection and server-side authentication checks.
+See [packages/web-next/SUPABASE_AUTH.md](mdc:packages/web-next/SUPABASE_AUTH.md) for details.
+
+## Important Code Conventions
+
+1. Use Next.js App Router conventions
+2. Follow atomic design principles for component organization (same as client package)
+3. Use functional components with hooks (same as client package)
+4. Place business logic in custom hooks (same as client package)
+5. Use TypeScript for type safety (same as client package)
+6. Use Apollo Client for GraphQL operations (same as client package)
+7. Leverage Next.js features like SSR, SSG when appropriate
+8. Use Next.js Image component for optimized images
+9. Follow Next.js best practices for performance and SEO
+
+## Next.js Specific Features
+
+- Server Components for improved performance
+- Client Components when interactivity is needed
+- Built-in optimization for images, fonts, and scripts
+- API routes for backend functionality (if needed)
+- Middleware for authentication and route protection
+
+## Important Files
+
+- Apollo client: [packages/web-next/lib/apolloClient.ts](mdc:packages/web-next/lib/apolloClient.ts)
+- Auth context: [packages/web-next/context/AuthContextProvider.tsx](mdc:packages/web-next/context/AuthContextProvider.tsx)
+- Root layout: [packages/web-next/app/layout.tsx](mdc:packages/web-next/app/layout.tsx)

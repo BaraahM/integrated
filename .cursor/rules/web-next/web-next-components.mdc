@@ -1,0 +1,386 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Component Patterns in Web-Next
+
+The web-next application uses atomic design principles combined with Next.js specific patterns for optimal performance and maintainability.
+
+## Component Structure
+# Component Patterns for Web-Next
+
+The web-next application uses consistent component patterns throughout the codebase, following atomic design principles and Next.js conventions. This follows the same core patterns as the client package but adapted for Next.js App Router.
+
+## Component Structure
+
+Components follow this general structure with Next.js considerations:
+
+```tsx
+// Server Component (default in Next.js App Router)
+import { ComponentName } from './ComponentName';
+
+// Define prop types with TypeScript interfaces
+interface ComponentProps {
+  prop1: string;
+  prop2?: number; // Optional prop
+  children?: React.ReactNode;
+}
+
+// Use functional components with arrow functions
+const ComponentName = ({ 
+  prop1, 
+  prop2 = 0, // Default value for optional prop
+  children 
+}: ComponentProps) => {
+  // Server component logic - no useState/useEffect here
+  
+  return (
+    <div>
+      {/* Component markup */}
+      {children}
+    </div>
+  );
+};
+
+export default ComponentName;
+```
+
+```tsx
+// Client Component (when interactivity is needed)
+'use client'
+
+import { useState } from 'react';
+
+interface InteractiveComponentProps {
+  prop1: string;
+  prop2?: number; // Optional prop
+  onAction: (value: string) => void;
+}
+
+const InteractiveComponent = ({ 
+  prop1, 
+  prop2 = 0,
+  onAction 
+}: InteractiveComponentProps) => {
+  // Component logic using hooks
+  const [state, setState] = useState(initialState);
+  
+  // Event handlers
+  const handleChange = (event) => {
+    setState(event.target.value);
+    onAction(event.target.value);
+  };
+  
+  return (
+    <div>
+      {/* Interactive component markup */}
+    </div>
+  );
+};
+
+export default InteractiveComponent;
+```
+
+## Component Organization
+
+- **Atomic Design Principles**: Components are organized following atomic design principles
+- **Complex Components**: More complex components may be split into multiple files in a directory
+- **Export Pattern**: Components are typically exported from an index.ts file in their directory
+
+## Atomic Design Organization
+
+### Atoms (Basic Building Blocks)
+
+```tsx
+// components/atoms/Button/Button.tsx
+import { Button as MantineButton, ButtonProps } from '@mantine/core';
+
+interface CustomButtonProps extends ButtonProps {
+  variant?: 'primary' | 'secondary' | 'danger';
+}
+
+const Button = ({ variant = 'primary', ...props }: CustomButtonProps) => {
+  return <MantineButton {...props} />;
+};
+
+export default Button;
+```
+
+### Molecules (Simple Combinations)
+
+```tsx
+// components/molecules/SearchField/SearchField.tsx
+'use client'
+
+import { TextInput, ActionIcon } from '@mantine/core';
+import { IconSearch } from '@tabler/icons-react';
+
+interface SearchFieldProps {
+  onSearch: (query: string) => void;
+  placeholder?: string;
+}
+
+const SearchField = ({ onSearch, placeholder }: SearchFieldProps) => {
+  return (
+    <TextInput
+      placeholder={placeholder}
+      rightSection={
+        <ActionIcon>
+          <IconSearch size={16} />
+        </ActionIcon>
+      }
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          onSearch(e.currentTarget.value);
+        }
+      }}
+    />
+  );
+};
+
+export default SearchField;
+```
+
+### Organisms (Complex Sections)
+
+```tsx
+// components/organisms/TaskList/TaskList.tsx
+'use client'
+
+import { Task } from '@/types/task';
+import TaskCard from '@/components/molecules/TaskCard/TaskCard';
+
+interface TaskListProps {
+  tasks: Task[];
+  onTaskUpdate: (taskId: string, updates: Partial<Task>) => void;
+}
+
+const TaskList = ({ tasks, onTaskUpdate }: TaskListProps) => {
+  return (
+    <div className="task-list">
+      {tasks.map(task => (
+        <TaskCard 
+          key={task.id}
+          task={task}
+          onUpdate={(updates) => onTaskUpdate(task.id, updates)}
+        />
+      ))}
+    </div>
+  );
+};
+
+export default TaskList;
+```
+
+### Templates (Page Layouts)
+
+```tsx
+// components/template/DashboardTemplate/DashboardTemplate.tsx
+import { Sidebar } from '@/components/organisms/Sidebar/Sidebar';
+import { Header } from '@/components/organisms/Header/Header';
+
+interface DashboardTemplateProps {
+  children: React.ReactNode;
+}
+
+const DashboardTemplate = ({ children }: DashboardTemplateProps) => {
+  return (
+    <div className="dashboard-layout">
+      <Header />
+      <div className="dashboard-content">
+        <Sidebar />
+        <main className="main-content">
+          {children}
+        </main>
+      </div>
+    </div>
+  );
+};
+
+export default DashboardTemplate;
+```
+
+## Next.js Specific Patterns
+
+### Server and Client Component Usage
+
+```tsx
+// Server Component for data fetching
+import { TaskList } from '@/components/organisms/TaskList/TaskList';
+import { getTasks } from '@/services/taskService';
+
+export default async function TasksPage() {
+  const tasks = await getTasks(); // Server-side data fetching
+  
+  return (
+    <div>
+      <h1>Tasks</h1>
+      <TaskList tasks={tasks} />
+    </div>
+  );
+}
+```
+
+### Form Components with Server Actions
+
+```tsx
+// components/forms/TaskForm/TaskForm.tsx
+import { createTask } from '@/app/tasks/actions';
+
+const TaskForm = () => {
+  return (
+    <form action={createTask}>
+      <input type="text" name="title" placeholder="Task title" />
+      <button type="submit">Create Task</button>
+    </form>
+  );
+};
+
+export default TaskForm;
+```
+
+## Mantine UI Integration
+
+Components use Mantine UI for styling and basic UI elements:
+
+```tsx
+'use client'
+
+import { Button, TextInput, Stack, Container } from '@mantine/core';
+import { useForm } from '@mantine/form';
+
+const FormComponent = ({ onSubmit }: { onSubmit: (values: any) => void }) => {
+  const form = useForm({
+    initialValues: {
+      name: '',
+      email: '',
+    },
+    validate: {
+      name: (value) => (value.length < 2 ? 'Name is too short' : null),
+      email: (value) => (/^\S+@\S+$/.test(value) ? null : 'Invalid email'),
+    },
+  });
+
+  return (
+    <Container>
+      <form onSubmit={form.onSubmit(onSubmit)}>
+        <Stack>
+          <TextInput 
+            label="Name" 
+            placeholder="Enter your name"
+            {...form.getInputProps('name')} 
+          />
+          <TextInput 
+            label="Email" 
+            placeholder="Enter your email"
+            {...form.getInputProps('email')} 
+          />
+          <Button type="submit">Submit</Button>
+        </Stack>
+      </form>
+    </Container>
+  );
+};
+
+export default FormComponent;
+```
+
+## Form Components
+
+Form components use Mantine Form hook for validation and state management:
+
+```tsx
+'use client'
+
+import { useForm } from '@mantine/form';
+import { TextInput, PasswordInput, Button, Stack } from '@mantine/core';
+
+const MyForm = ({ onSubmit }: { onSubmit: (values: any) => void }) => {
+  const form = useForm({
+    initialValues: {
+      email: '',
+      password: '',
+    },
+    validate: {
+      email: (value) => (/^\S+@\S+$/.test(value) ? null : 'Invalid email'),
+      password: (value) => (value.length < 8 ? 'Password too short' : null),
+    },
+  });
+
+  return (
+    <form onSubmit={form.onSubmit(onSubmit)}>
+      <Stack>
+        <TextInput {...form.getInputProps('email')} label="Email" />
+        <PasswordInput {...form.getInputProps('password')} label="Password" />
+        <Button type="submit">Submit</Button>
+      </Stack>
+    </form>
+  );
+};
+
+export default MyForm;
+```
+
+## Protected Components
+
+Components that require authentication are wrapped in auth check components or guards:
+
+```tsx
+'use client'
+
+import { useAuthContext } from '@/components/providers/AuthProvider';
+import { redirect } from 'next/navigation';
+
+const ProtectedComponent = ({ children }: { children: React.ReactNode }) => {
+  const { isAuthenticated, isLoading } = useAuthContext();
+  
+  if (isLoading) return <div>Loading...</div>;
+  if (!isAuthenticated) {
+    redirect('/login');
+    return null;
+  }
+  
+  return <>{children}</>;
+};
+
+export default ProtectedComponent;
+```
+
+## Lazy Loading
+
+Large components or page components often use lazy loading:
+
+```tsx
+'use client'
+
+import { lazy, Suspense } from 'react';
+
+const LazyComponent = lazy(() => import('./HeavyComponent'));
+
+const App = () => (
+  <Suspense fallback={<div>Loading...</div>}>
+    <LazyComponent />
+  </Suspense>
+);
+
+export default App;
+```
+
+## Important Component Examples
+
+- Dashboard template: [packages/web-next/components/template/DashboardTemplate/DashboardTemplate.tsx](mdc:packages/web-next/components/template/DashboardTemplate/DashboardTemplate.tsx)
+- Form components: [packages/web-next/components/forms/](mdc:packages/web-next/components/forms)
+- Auth components: [packages/web-next/components/auth/](mdc:packages/web-next/components/auth)
+- Layout components: [packages/web-next/components/layout/](mdc:packages/web-next/components/layout)
+
+## Next.js Component Best Practices
+
+1. **Use Server Components by default** for better performance
+2. **Use Client Components sparingly** only when interactivity is needed
+3. **Follow atomic design principles** for component organization
+4. **Use TypeScript** for type safety
+5. **Leverage Next.js Image component** for optimized images
+6. **Use proper error boundaries** for error handling
+7. **Implement loading states** for better UX
+8. **Follow accessibility guidelines** in all components

@@ -1,0 +1,181 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# UI Architecture & Separation of Concerns
+
+## Core Principle: Business Logic Separation
+
+**For all changes in `packages/ui/` and `packages/web-next/`:**
+
+Business logic MUST be abstracted into reusable hooks and services, while UI components remain pure and pages act as orchestrators.
+
+## Architecture Pattern:
+
+1. **Logic** → `hooks/` and `services/`
+2. **UI** → `components/`
+3. **Pages** → Orchestrate and pass props
+
+## Why This Pattern:
+
+- **Scalability**: Logic in hooks/services is composable and testable across multiple pages/components
+- **Clarity**: Pages show the big picture (routing + props), business logic is modular and focused
+- **Reusability**: Forms, data fetching, state management can be reused without duplication
+- **Maintainability**: Changes to logic don't affect UI, and vice versa
+- **Testability**: Easier to unit test hooks/services without full UI rendering
+- **Atomic Design Compliance**: Components follow visual hierarchy and remain purely functional
+
+## Implementation Rules:
+
+### ✅ DO:
+
+**Pages (Next.js pages or app router):**
+
+```tsx
+// pages/login.tsx or app/login/page.tsx
+import LoginForm from '@/components/organisms/LoginForm';
+import { useLoginForm } from '@/hooks/useLoginForm';
+
+export default function LoginPage() {
+  const formProps = useLoginForm();
+  return <LoginForm {...formProps} />;
+}
+```
+
+**Hooks (Business Logic):**
+
+```tsx
+// hooks/useLoginForm.ts
+import { useState } from 'react';
+import { loginUser } from '@/services/authService';
+
+export function useLoginForm() {
+  const [values, setValues] = useState({ email: '', password: '' });
+  const [error, setError] = useState('');
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setValues({ ...values, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await loginUser(values.email, values.password);
+    } catch (err) {
+      setError('Login failed');
+    }
+  };
+
+  return { values, handleChange, handleSubmit, error };
+}
+```
+
+**Components (Pure UI):**
+
+```tsx
+// components/organisms/LoginForm.tsx
+interface LoginFormProps {
+  values: { email: string; password: string };
+  handleChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  handleSubmit: (e: React.FormEvent) => void;
+  error: string;
+}
+
+export default function LoginForm({ values, handleChange, handleSubmit, error }: LoginFormProps) {
+  return (
+    <form onSubmit={handleSubmit}>
+      <input name="email" value={values.email} onChange={handleChange} />
+      <input name="password" value={values.password} onChange={handleChange} />
+      {error && <p>{error}</p>}
+      <button type="submit">Login</button>
+    </form>
+  );
+}
+```
+
+**Services (External API/Data Logic):**
+
+```tsx
+// services/authService.ts
+export async function loginUser(email: string, password: string) {
+  const response = await fetch('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  
+  if (!response.ok) {
+    throw new Error('Login failed');
+  }
+  
+  return response.json();
+}
+```
+
+### ❌ AVOID:
+
+1. **Putting all logic inside components** → Leads to bloated, tightly coupled code
+2. **Putting all logic in pages only** → Violates DRY, harder to reuse logic
+3. **Excessive prop drilling** → Use hooks or global state instead
+4. **Mixed concerns in single files** → Keep UI and logic separate
+
+## Directory Structure:
+
+```
+packages/web-next/
+├── app/ or pages/          # Route handlers & orchestration
+├── components/             # Pure UI components
+│   ├── atoms/             # Basic UI elements
+│   ├── molecules/         # Composite UI elements  
+│   ├── organisms/         # Complex UI sections
+│   └── templates/         # Page layouts
+├── hooks/                  # Custom hooks (business logic)
+├── services/              # API calls & external services
+├── lib/                   # Utilities & configurations
+└── types/                 # TypeScript definitions
+
+packages/ui/
+├── src/
+│   ├── components/        # Reusable UI components
+│   ├── hooks/            # UI-specific hooks
+│   └── utils/            # UI utilities
+```
+
+## Component Patterns:
+
+**For packages/ui/ components:**
+- Must be purely presentational
+- Accept all necessary data via props
+- No direct API calls or business logic
+- Use TypeScript interfaces for props
+- Export both component and props interface
+
+**For packages/web-next/ pages:**
+- Import required hooks and components
+- Pass data between hooks and components via props
+- Handle routing and page-level state orchestration
+- Keep minimal logic (only routing/orchestration)
+
+**For hooks:**
+- Encapsulate all business logic
+- Return objects with clear, descriptive names
+- Handle loading states, errors, and data transformations
+- Be reusable across multiple components/pages
+
+**For services:**
+- Handle external API communications
+- Implement error handling and retries
+- Keep functions pure and focused
+- Export typed functions with clear interfaces
+
+## Enforcement:
+
+When modifying or creating files in `packages/ui/` or `packages/web-next/`:
+
+1. **Before adding logic to a component**: Ask "Can this be moved to a hook?"
+2. **Before adding API calls to a page**: Ask "Should this be in a service?"
+3. **Before copying logic**: Ask "Can this be made into a reusable hook?"
+4. **When components get complex**: Ask "Can this be split into smaller, focused components?"
+
+This pattern ensures maintainable, testable, and scalable UI architecture across both the component library and the Next.js application.

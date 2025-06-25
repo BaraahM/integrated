@@ -1,0 +1,525 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# GraphQL Usage in Web-Next
+
+The web-next application uses Apollo Client to communicate with the GraphQL API, with Next.js specific optimizations and patterns.
+
+## Apollo Client Setup
+
+# GraphQL Usage in Web-Next
+
+The web-next application uses Apollo Client to communicate with the GraphQL API, following the same patterns as the client package but adapted for Next.js App Router with support for both Server and Client Components.
+
+## Apollo Client Setup
+
+Apollo Client is configured in [packages/web-next/lib/apolloClient.ts](mdc:packages/web-next/lib/apolloClient.ts) and provided to the application via the Apollo Provider in the root component, similar to the client package.
+
+## Query and Mutation Organization
+
+GraphQL queries and mutations are organized in dedicated files, following the same pattern as the client package:
+
+- Queries: [packages/web-next/api/queries.ts](mdc:packages/web-next/api/queries.ts)
+- Mutations: [packages/web-next/api/mutations.ts](mdc:packages/web-next/api/mutations.ts)
+
+## Query Definition Pattern
+
+Queries are defined using the `gql` tag from Apollo Client (same as client package):
+
+```typescript
+import { gql } from '@apollo/client';
+
+export const QUERY_GET_ME = gql`
+  query getMe {
+    me {
+      id
+      firstname
+      lastname
+      email
+      avatar
+      role {
+        name
+        permissions {
+          name
+        }
+      }
+    }
+  }
+`;
+```
+
+## Apollo Client Setup for Next.js
+
+Apollo Client is configured for Next.js with support for both Server and Client Components:
+
+```tsx
+// lib/apolloClient.ts
+import { ApolloClient, InMemoryCache, createHttpLink } from '@apollo/client';
+import { setContext } from '@apollo/client/link/context';
+
+const httpLink = createHttpLink({
+  uri: process.env.NEXT_PUBLIC_GRAPHQL_ENDPOINT,
+});
+
+const authLink = setContext((_, { headers }) => {
+  // Get auth token from cookies or localStorage
+  const token = typeof window !== 'undefined' 
+    ? localStorage.getItem('supabase.auth.token')
+    : null;
+
+  return {
+    headers: {
+      ...headers,
+      authorization: token ? `Bearer ${token}` : "",
+    }
+  };
+});
+
+export const apolloClient = new ApolloClient({
+  link: authLink.concat(httpLink),
+  cache: new InMemoryCache(),
+  ssrMode: typeof window === 'undefined',
+});
+```
+
+## Apollo Provider Setup
+
+```tsx
+// components/providers/ApolloProvider.tsx
+'use client'
+
+import { ApolloProvider as BaseApolloProvider } from '@apollo/client';
+import { apolloClient } from '@/lib/apolloClient';
+
+export function ApolloProvider({ children }: { children: React.ReactNode }) {
+  return (
+    <BaseApolloProvider client={apolloClient}>
+      {children}
+    </BaseApolloProvider>
+  );
+}
+```
+
+## Query and Mutation Organization
+
+GraphQL operations are organized in dedicated files:
+
+```tsx
+// api/queries.ts
+import { gql } from '@apollo/client';
+
+export const GET_TASKS = gql`
+  query GetTasks($accountId: String!) {
+    tasks(accountId: $accountId) {
+      id
+      title
+      description
+      status
+      priority
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+export const GET_TASK_BY_ID = gql`
+  query GetTaskById($id: String!) {
+    task(id: $id) {
+      id
+      title
+      description
+      status
+      priority
+      tags {
+        id
+        name
+        color
+      }
+    }
+  }
+`;
+```
+
+```tsx
+// api/mutations.ts
+import { gql } from '@apollo/client';
+
+export const CREATE_TASK = gql`
+  mutation CreateTask($data: CreateTaskInput!) {
+    createTask(data: $data) {
+      id
+      title
+      description
+      status
+    }
+  }
+`;
+
+export const UPDATE_TASK = gql`
+  mutation UpdateTask($id: String!, $data: UpdateTaskInput!) {
+    updateTask(id: $id, data: $data) {
+      id
+      title
+      status
+    }
+  }
+`;
+```
+
+## Using Queries in Server Components
+
+```tsx
+// app/tasks/page.tsx
+import { apolloClient } from '@/lib/apolloClient';
+import { GET_TASKS } from '@/api/queries';
+import TaskList from '@/components/organisms/TaskList/TaskList';
+
+interface TasksPageProps {
+  searchParams: { accountId?: string };
+}
+
+export default async function TasksPage({ searchParams }: TasksPageProps) {
+  const { data } = await apolloClient.query({
+    query: GET_TASKS,
+    variables: { accountId: searchParams.accountId },
+    fetchPolicy: 'cache-first',
+  });
+
+  return (
+    <div>
+      <h1>Tasks</h1>
+      <TaskList tasks={data.tasks} />
+    </div>
+  );
+}
+```
+
+## Using Queries in Client Components
+
+```tsx
+// components/organisms/TaskDashboard/TaskDashboard.tsx
+'use client'
+
+import { useQuery } from '@apollo/client';
+import { GET_TASKS } from '@/api/queries';
+import { useAuth } from '@/components/providers/AuthProvider';
+
+const TaskDashboard = () => {
+  const { user } = useAuth();
+  const { loading, error, data, refetch } = useQuery(GET_TASKS, {
+    variables: { accountId: user?.accountId },
+    skip: !user?.accountId,
+  });
+
+  if (loading) return <div>Loading tasks...</div>;
+  if (error) return <div>Error: {error.message}</div>;
+
+  return (
+    <div>
+      <h2>My Tasks</h2>
+      {data?.tasks.map(task => (
+        <div key={task.id}>{task.title}</div>
+      ))}
+      <button onClick={() => refetch()}>Refresh</button>
+    </div>
+  );
+};
+
+export default TaskDashboard;
+```
+
+## Using Mutations in Client Components
+
+```tsx
+// components/forms/CreateTaskForm/CreateTaskForm.tsx
+'use client'
+
+import { useMutation } from '@apollo/client';
+import { useForm } from '@mantine/form';
+import { CREATE_TASK, GET_TASKS } from '@/api/queries';
+import { Button, TextInput, Textarea } from '@mantine/core';
+
+const CreateTaskForm = ({ accountId }: { accountId: string }) => {
+  const [createTask, { loading }] = useMutation(CREATE_TASK, {
+    refetchQueries: [{ query: GET_TASKS, variables: { accountId } }],
+  });
+
+  const form = useForm({
+    initialValues: {
+      title: '',
+      description: '',
+    },
+    validate: {
+      title: (value) => (value.length < 3 ? 'Title too short' : null),
+    },
+  });
+
+  const handleSubmit = async (values: typeof form.values) => {
+    try {
+      await createTask({
+        variables: {
+          data: { ...values, accountId },
+        },
+      });
+      form.reset();
+    } catch (error) {
+      console.error('Error creating task:', error);
+    }
+  };
+
+  return (
+    <form onSubmit={form.onSubmit(handleSubmit)}>
+      <TextInput
+        label="Title"
+        {...form.getInputProps('title')}
+      />
+      <Textarea
+        label="Description"
+        {...form.getInputProps('description')}
+      />
+      <Button type="submit" loading={loading}>
+        Create Task
+      </Button>
+    </form>
+  );
+};
+
+export default CreateTaskForm;
+```
+
+## Using Queries in Components
+
+Queries are used in components with the `useQuery` hook (same pattern as client package):
+
+```tsx
+'use client'
+
+import { useQuery } from '@apollo/client';
+import { QUERY_GET_ME } from '@/api/queries';
+
+const ProfileComponent = () => {
+  const { loading, error, data } = useQuery(QUERY_GET_ME);
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error.message}</div>;
+
+  const { me } = data;
+  
+  return (
+    <div>
+      <h1>{me.firstname} {me.lastname}</h1>
+      <p>{me.email}</p>
+    </div>
+  );
+};
+
+export default ProfileComponent;
+```
+
+## Using Mutations in Components
+
+Mutations are used with the `useMutation` hook (same pattern as client package):
+
+```tsx
+'use client'
+
+import { useMutation } from '@apollo/client';
+import { MUTATION_UPDATE_PROFILE } from '@/api/mutations';
+
+const ProfileEditor = () => {
+  const [updateProfile, { loading }] = useMutation(MUTATION_UPDATE_PROFILE);
+
+  const handleSubmit = (values: any) => {
+    updateProfile({ 
+      variables: { data: values },
+      onCompleted: (data) => {
+        showNotification({ title: 'Profile updated!' });
+      },
+      onError: (error) => {
+        showError({ title: 'Failed to update profile', error });
+      }
+    });
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      {/* Form fields */}
+      <Button type="submit" loading={loading}>Save</Button>
+    </form>
+  );
+};
+
+export default ProfileEditor;
+```
+
+## Form Submission and API Integration
+
+Forms connect to the API through custom hooks (same pattern as client package):
+
+```typescript
+// hook definition
+export const useUpdateProfileMutation = () => {
+  const [mutate, { loading }] = useMutation(MUTATION_UPDATE_PROFILE, {
+    refetchQueries: [{ query: QUERY_GET_ME }],
+  });
+  
+  const updateProfile = async (data: any) => {
+    return mutate({ variables: { data } });
+  };
+  
+  return [updateProfile, { loading }];
+};
+
+// usage in component
+const ProfileForm = () => {
+  const { handleUpdateProfile, loading } = useUpdateProfile();
+  
+  // Use the hook in your component
+};
+```
+
+## Custom Hooks for GraphQL Operations
+
+Complex GraphQL operations are often encapsulated in custom hooks (same pattern as client package):
+
+```tsx
+// hooks/useCreateTask.ts
+'use client'
+
+import { useMutation } from '@apollo/client';
+import { CREATE_TASK, GET_TASKS } from '@/api/queries';
+
+export const useCreateTask = (accountId: string) => {
+  const [createTaskMutation, { loading, error }] = useMutation(CREATE_TASK, {
+    refetchQueries: [{ query: GET_TASKS, variables: { accountId } }],
+  });
+
+  const createTask = async (taskData: { title: string; description?: string }) => {
+    try {
+      const result = await createTaskMutation({
+        variables: {
+          data: { ...taskData, accountId },
+        },
+      });
+      return result.data.createTask;
+    } catch (err) {
+      throw new Error('Failed to create task');
+    }
+  };
+
+  return { createTask, loading, error };
+};
+```
+
+## Error Handling
+
+```tsx
+'use client'
+
+import { useQuery } from '@apollo/client';
+import { Alert } from '@mantine/core';
+
+const TasksWithErrorHandling = () => {
+  const { loading, error, data } = useQuery(GET_TASKS);
+
+  if (loading) return <div>Loading...</div>;
+  
+  if (error) {
+    return (
+      <Alert color="red" title="Error loading tasks">
+        {error.message}
+      </Alert>
+    );
+  }
+
+  return (
+    <div>
+      {data?.tasks.map(task => (
+        <div key={task.id}>{task.title}</div>
+      ))}
+    </div>
+  );
+};
+```
+
+## Optimistic Updates
+
+```tsx
+'use client'
+
+import { useMutation } from '@apollo/client';
+import { UPDATE_TASK } from '@/api/mutations';
+
+const TaskStatusToggle = ({ task }: { task: Task }) => {
+  const [updateTask] = useMutation(UPDATE_TASK, {
+    optimisticResponse: {
+      updateTask: {
+        ...task,
+        status: task.status === 'completed' ? 'pending' : 'completed',
+      },
+    },
+  });
+
+  const toggleStatus = () => {
+    updateTask({
+      variables: {
+        id: task.id,
+        data: {
+          status: task.status === 'completed' ? 'pending' : 'completed',
+        },
+      },
+    });
+  };
+
+  return (
+    <button onClick={toggleStatus}>
+      {task.status === 'completed' ? 'Mark Pending' : 'Mark Complete'}
+    </button>
+  );
+};
+```
+
+## Apollo Client Cache Management
+
+```tsx
+// utils/cacheUtils.ts
+import { apolloClient } from '@/lib/apolloClient';
+import { GET_TASKS } from '@/api/queries';
+
+export const updateTaskInCache = (taskId: string, updates: Partial<Task>) => {
+  const existingData = apolloClient.readQuery({
+    query: GET_TASKS,
+    variables: { accountId: 'current-account-id' },
+  });
+
+  if (existingData) {
+    apolloClient.writeQuery({
+      query: GET_TASKS,
+      variables: { accountId: 'current-account-id' },
+      data: {
+        tasks: existingData.tasks.map((task: Task) =>
+          task.id === taskId ? { ...task, ...updates } : task
+        ),
+      },
+    });
+  }
+};
+```
+
+## Next.js Specific Patterns
+
+1. Use Server Components for initial data fetching when possible
+2. Use Client Components for interactive GraphQL operations
+3. Implement proper loading and error states
+4. Use Apollo Client cache for optimal performance
+5. Handle authentication tokens properly for SSR
+6. Use Next.js revalidation with GraphQL subscriptions
+7. Implement optimistic updates for better UX
+
+## Important Files
+
+- Apollo Client config: [packages/web-next/lib/apolloClient.ts](mdc:packages/web-next/lib/apolloClient.ts)
+- GraphQL queries: [packages/web-next/api/queries.ts](mdc:packages/web-next/api/queries.ts)
+- GraphQL mutations: [packages/web-next/api/mutations.ts](mdc:packages/web-next/api/mutations.ts)
