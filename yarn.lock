@@ -65,7 +65,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ai-sdk/react@npm:^1.2.12":
+"@ai-sdk/react@npm:1.2.12, @ai-sdk/react@npm:^1.2.12":
   version: 1.2.12
   resolution: "@ai-sdk/react@npm:1.2.12"
   dependencies:
@@ -1120,14 +1120,16 @@ __metadata:
     "@ai-sdk/react": ^1.2.12
     "@apollo/client": ^3.8.8
     "@mantine/core": ^7.12.1
+    "@mantine/dropzone": ^8.1.1
     "@mantine/form": ^7.12.1
     "@mantine/hooks": ^7.12.1
-    "@mantine/modals": ^7.12.1
-    "@mantine/notifications": ^7.12.1
+    "@mantine/modals": ^8.1.1
+    "@mantine/notifications": ^8.1.1
+    "@mantine/spotlight": ^8.1.1
     "@mantine/tiptap": ^7.12.1
     "@playwright/test": ^1.40.0
     "@supabase/supabase-js": ^2.49.4
-    "@tabler/icons-react": ^2.44.0
+    "@tabler/icons-react": ^3.34.0
     "@testing-library/jest-dom": ^6.1.0
     "@testing-library/react": ^14.0.0
     "@testing-library/user-event": ^14.5.0
@@ -1157,6 +1159,7 @@ __metadata:
     "@types/react-dom": ^18.2.17
     "@typescript-eslint/parser": ^8.33.0
     "@uploadthing/react": 7.3.1
+    ai: ^4.3.16
     clsx: ^2.1.1
     eslint: ^8.53.0
     eslint-config-next: ^14.0.0
@@ -2598,6 +2601,20 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@mantine/dropzone@npm:^8.1.1":
+  version: 8.1.1
+  resolution: "@mantine/dropzone@npm:8.1.1"
+  dependencies:
+    react-dropzone: 14.3.8
+  peerDependencies:
+    "@mantine/core": 8.1.1
+    "@mantine/hooks": 8.1.1
+    react: ^18.x || ^19.x
+    react-dom: ^18.x || ^19.x
+  checksum: 79f15588d8f9ff4125d30218622b7d425f30a3dfbb0fd807f4db4e4b996c0c843f00e328c5325a3d7dd18de1e580ccbc8bee956024e6f4d8e45b073ff95ca7a7
+  languageName: node
+  linkType: hard
+
 "@mantine/form@npm:7.12.1":
   version: 7.12.1
   resolution: "@mantine/form@npm:7.12.1"
@@ -2631,6 +2648,18 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@mantine/modals@npm:^8.1.1":
+  version: 8.1.1
+  resolution: "@mantine/modals@npm:8.1.1"
+  peerDependencies:
+    "@mantine/core": 8.1.1
+    "@mantine/hooks": 8.1.1
+    react: ^18.x || ^19.x
+    react-dom: ^18.x || ^19.x
+  checksum: 0eea7ee45c58f1eb91cd1670bab98043fdbfd44308bbb93ddb452dfb235aa724bb3aacb24b7b8f0a54c2987427a4e34d3da49891e09aa5284a2afb5321cebd25
+  languageName: node
+  linkType: hard
+
 "@mantine/notifications@npm:^7.12.1":
   version: 7.12.1
   resolution: "@mantine/notifications@npm:7.12.1"
@@ -2646,12 +2675,50 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@mantine/notifications@npm:^8.1.1":
+  version: 8.1.1
+  resolution: "@mantine/notifications@npm:8.1.1"
+  dependencies:
+    "@mantine/store": 8.1.1
+    react-transition-group: 4.4.5
+  peerDependencies:
+    "@mantine/core": 8.1.1
+    "@mantine/hooks": 8.1.1
+    react: ^18.x || ^19.x
+    react-dom: ^18.x || ^19.x
+  checksum: 013c8fff939923d6ea86da914900184a616f7ca434e65e4974a34eaf0346a3f04a5cbd04b33525af809c98b74cfa0dd53b9e958c22691111bab38ab47bdd309c
+  languageName: node
+  linkType: hard
+
+"@mantine/spotlight@npm:^8.1.1":
+  version: 8.1.1
+  resolution: "@mantine/spotlight@npm:8.1.1"
+  dependencies:
+    "@mantine/store": 8.1.1
+  peerDependencies:
+    "@mantine/core": 8.1.1
+    "@mantine/hooks": 8.1.1
+    react: ^18.x || ^19.x
+    react-dom: ^18.x || ^19.x
+  checksum: 83530bea02b96e7c602dce4f16d3b0167f2cb5b838470ae45cf75b8bb4417ea41f81e67434d00e7027b41cfb40fcd0145b32fa4768309608bdec07ef81a40862
+  languageName: node
+  linkType: hard
+
 "@mantine/store@npm:7.12.1":
   version: 7.12.1
   resolution: "@mantine/store@npm:7.12.1"
   peerDependencies:
     react: ^18.2.0
   checksum: 806133ac14b22582d5686ef36cbc93287d3408a6b3ce4db5a0aa28c713cddc5447e666e6dd52f1c6e20d739f58921deb722ef553a2456a24d6600c6ade9925d7
+  languageName: node
+  linkType: hard
+
+"@mantine/store@npm:8.1.1":
+  version: 8.1.1
+  resolution: "@mantine/store@npm:8.1.1"
+  peerDependencies:
+    react: ^18.x || ^19.x
+  checksum: 49255b116811b0d5910b79b90da671f26fedefe760241eceb2fe31d5c2afdef907180e932456e40b810c0aaef25bbb12bbeccb98666bc39809b67219ef6d5b2e
   languageName: node
   linkType: hard
 
@@ -3338,6 +3405,13 @@ __metadata:
   version: 0.1.1
   resolution: "@one-ini/wasm@npm:0.1.1"
   checksum: 54700e055037f1a63bfcc86d24822203b25759598c2c3e295d1435130a449108aebc119c9c2e467744767dbe0b6ab47a182c61aa1071ba7368f5e20ab197ba65
+  languageName: node
+  linkType: hard
+
+"@opentelemetry/api@npm:1.9.0":
+  version: 1.9.0
+  resolution: "@opentelemetry/api@npm:1.9.0"
+  checksum: 9aae2fe6e8a3a3eeb6c1fdef78e1939cf05a0f37f8a4fae4d6bf2e09eb1e06f966ece85805626e01ba5fab48072b94f19b835449e58b6d26720ee19a58298add
   languageName: node
   linkType: hard
 
@@ -5077,6 +5151,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/diff-match-patch@npm:^1.0.36":
+  version: 1.0.36
+  resolution: "@types/diff-match-patch@npm:1.0.36"
+  checksum: 0bad011ab138baa8bde94e7815064bb881f010452463272644ddbbb0590659cb93f7aa2776ff442c6721d70f202839e1053f8aa62d801cc4166f7a3ea9130055
+  languageName: node
+  linkType: hard
+
 "@types/ejs@npm:^3.1.5":
   version: 3.1.5
   resolution: "@types/ejs@npm:3.1.5"
@@ -6339,6 +6420,26 @@ __metadata:
   languageName: node
   linkType: hard
 
+"ai@npm:^4.3.16":
+  version: 4.3.16
+  resolution: "ai@npm:4.3.16"
+  dependencies:
+    "@ai-sdk/provider": 1.1.3
+    "@ai-sdk/provider-utils": 2.2.8
+    "@ai-sdk/react": 1.2.12
+    "@ai-sdk/ui-utils": 1.2.11
+    "@opentelemetry/api": 1.9.0
+    jsondiffpatch: 0.6.0
+  peerDependencies:
+    react: ^18 || ^19 || ^19.0.0-rc
+    zod: ^3.23.8
+  peerDependenciesMeta:
+    react:
+      optional: true
+  checksum: befe761c9386cda6de33370a2590900352b444d81959255c624e2bfd40765f126d29269f0ef3e00bde07daf237004aa0b66d0b253664aa478c148e923ce78c41
+  languageName: node
+  linkType: hard
+
 "ajv-formats@npm:2.1.1":
   version: 2.1.1
   resolution: "ajv-formats@npm:2.1.1"
@@ -6982,6 +7083,13 @@ __metadata:
   version: 0.4.0
   resolution: "asynckit@npm:0.4.0"
   checksum: d73e2ddf20c4eb9337e1b3df1a0f6159481050a5de457c55b14ea2e5cb6d90bb69e004c9af54737a5ee0917fcf2c9e25de67777bbe58261847846066ba75bc9d
+  languageName: node
+  linkType: hard
+
+"attr-accept@npm:^2.2.4":
+  version: 2.2.5
+  resolution: "attr-accept@npm:2.2.5"
+  checksum: 9b4cb82213925cab2d568f71b3f1c7a7778f9192829aac39a281e5418cd00c04a88f873eb89f187e0bf786fa34f8d52936f178e62cbefb9254d57ecd88ada99b
   languageName: node
   linkType: hard
 
@@ -9011,6 +9119,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"diff-match-patch@npm:^1.0.5":
+  version: 1.0.5
+  resolution: "diff-match-patch@npm:1.0.5"
+  checksum: 142b6fad627b9ef309d11bd935e82b84c814165a02500f046e2773f4ea894d10ed3017ac20454900d79d4a0322079f5b713cf0986aaf15fce0ec4a2479980c86
+  languageName: node
+  linkType: hard
+
 "diff-sequences@npm:^29.6.3":
   version: 29.6.3
   resolution: "diff-sequences@npm:29.6.3"
@@ -10793,6 +10908,15 @@ __metadata:
   dependencies:
     tslib: ^2.4.0
   checksum: 477ca1b56274db9fee1a8a623c4bfef580389726a5fef843af8c1f2f17f70ec2d1e41b29115777c92e120a15f1cca734c6ef36bb48bfa2ee027c68da16cd0d28
+  languageName: node
+  linkType: hard
+
+"file-selector@npm:^2.1.0":
+  version: 2.1.2
+  resolution: "file-selector@npm:2.1.2"
+  dependencies:
+    tslib: ^2.7.0
+  checksum: fe827e0e95410aacfcc3eabc38c29cc36055257f03c1c06b631a2b5af9730c142ad2c52f5d64724d02231709617bda984701f52bd1f4b7aca50fb6585a27c1d2
   languageName: node
   linkType: hard
 
@@ -13523,6 +13647,19 @@ __metadata:
   version: 3.2.0
   resolution: "jsonc-parser@npm:3.2.0"
   checksum: 5a12d4d04dad381852476872a29dcee03a57439574e4181d91dca71904fcdcc5e8e4706c0a68a2c61ad9810e1e1c5806b5100d52d3e727b78f5cdc595401045b
+  languageName: node
+  linkType: hard
+
+"jsondiffpatch@npm:0.6.0":
+  version: 0.6.0
+  resolution: "jsondiffpatch@npm:0.6.0"
+  dependencies:
+    "@types/diff-match-patch": ^1.0.36
+    chalk: ^5.3.0
+    diff-match-patch: ^1.0.5
+  bin:
+    jsondiffpatch: bin/jsondiffpatch.js
+  checksum: f7822e48a8ef8b9f7c6024cc59b7d3707a9fe6d84fd776d169de5a1803ad551ffe7cfdc7587f3900f224bc70897355884ed43eb1c8ccd02e7f7b43a7ebcfed4f
   languageName: node
   linkType: hard
 
@@ -17104,6 +17241,19 @@ __metadata:
   languageName: node
   linkType: hard
 
+"react-dropzone@npm:14.3.8":
+  version: 14.3.8
+  resolution: "react-dropzone@npm:14.3.8"
+  dependencies:
+    attr-accept: ^2.2.4
+    file-selector: ^2.1.0
+    prop-types: ^15.8.1
+  peerDependencies:
+    react: ">= 16.8 || 18.0.0"
+  checksum: e17b1832783cda7b8824fe9370e99185d1abbdd5e4980b2985d6321c5768c8de18ff7b9ad550c809ee9743269dea608ff74d5208062754ce8377ad022897b278
+  languageName: node
+  linkType: hard
+
 "react-email@npm:3.0.1":
   version: 3.0.1
   resolution: "react-email@npm:3.0.1"
@@ -19776,7 +19926,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"tslib@npm:^2.8.0":
+"tslib@npm:^2.7.0, tslib@npm:^2.8.0":
   version: 2.8.1
   resolution: "tslib@npm:2.8.1"
   checksum: 9c4759110a19c53f992d9aae23aac5ced636e99887b51b9e61def52611732872ff7668757d4e4c61f19691e36f4da981cd9485e869b4a7408d689f6bf1f14e62
